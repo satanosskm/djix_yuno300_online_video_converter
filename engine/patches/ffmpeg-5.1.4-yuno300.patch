@@ -1,0 +1,118 @@
+--- a/fftools/ffmpeg.c
++++ b/fftools/ffmpeg.c
+@@ -653,6 +653,14 @@
+     }
+     term_exit();
+     ffmpeg_exited = 1;
++
++    /* Yuno 300: reset the global counters so the next run starts from a
++       clean slate (otherwise the following exec() traps on corrupted
++       state, e.g. "table index out of bounds"). */
++    nb_input_files = nb_output_files = nb_input_streams = nb_output_streams = 0;
++    av_freep(&filtergraphs);
++    nb_filtergraphs = 0;
++    ffmpeg_exited = 0;
+ }
+ 
+ void remove_avoptions(AVDictionary **a, AVDictionary *b)
+@@ -4513,11 +4521,77 @@
+ #endif
+ }
+ 
++/* ---- Yuno 300 customisations (see engine/BUILD.md) ---- */
++#include <setjmp.h>
++#include <emscripten.h>
++
++jmp_buf yuno_jmp;
++int yuno_ret;
++
++/* Line-buffered log bridge: av_log_format_line emits fragments; we only
++   forward COMPLETE lines to JS (Module.logger) so stream parsing never
++   sees half a line. */
++static unsigned char yuno_buf[8192];
++static int yuno_len = 0;
++
++static void yuno_emit(void)
++{
++    int start = 0;
++    while (start < yuno_len) {
++        unsigned char *nl = memchr(yuno_buf + start, '\n', yuno_len - start);
++        if (!nl)
++            break;
++        {
++            int n = (int)(nl - (yuno_buf + start));
++            char line[8200];
++            if (n > 8191)
++                n = 8191;
++            memcpy(line, yuno_buf + start, n);
++            line[n] = 0;
++            while (n > 0 && (line[n-1] == '\r' || line[n-1] == '\n'))
++                line[--n] = 0;
++            EM_ASM({
++                if (typeof Module !== 'undefined' && Module.logger)
++                    try { Module.logger({ type: 'ffmpeg', message: UTF8ToString($0) }); } catch (e) {}
++            }, line);
++        }
++        start = (int)(nl - yuno_buf) + 1;
++    }
++    if (start > 0) {
++        memmove(yuno_buf, yuno_buf + start, yuno_len - start);
++        yuno_len -= start;
++    }
++}
++
++static void yuno_log(void *ptr, int level, const char *fmt, va_list vl)
++{
++    char tmp[1024];
++    int print_prefix = 1;
++    int len;
++    av_log_format_line(ptr, level, fmt, vl, tmp, sizeof(tmp), &print_prefix);
++    len = strlen(tmp);
++    if (len > (int)sizeof(yuno_buf) - yuno_len - 1)
++        len = (int)sizeof(yuno_buf) - yuno_len - 1;
++    if (len > 0) {
++        memcpy(yuno_buf + yuno_len, tmp, len);
++        yuno_len += len;
++        yuno_buf[yuno_len] = 0;
++    }
++    if (memchr(yuno_buf, '\n', yuno_len))
++        yuno_emit();
++}
++
+ int main(int argc, char **argv)
+ {
+     int i, ret;
+     BenchmarkTimeStamps ti;
+ 
++    /* Yuno 300: exit_program() longjmp()s here; this lets the wasm module
++       survive several runs in the same instance. */
++    if (setjmp(yuno_jmp))
++        return yuno_ret;
++    av_log_set_callback(yuno_log);
++
+     init_dynload();
+ 
+     register_exit(ffmpeg_cleanup);
+--- a/fftools/cmdutils.c
++++ b/fftools/cmdutils.c
+@@ -90,12 +90,19 @@
+     program_exit = cb;
+ }
+ 
++/* Yuno 300: instead of exiting the process (impossible inside wasm),
++   longjmp back to the top of main() so the module can be reused. */
++#include <setjmp.h>
++extern jmp_buf yuno_jmp;
++extern int yuno_ret;
++
+ void exit_program(int ret)
+ {
+     if (program_exit)
+         program_exit(ret);
+ 
+-    exit(ret);
++    yuno_ret = ret;
++    longjmp(yuno_jmp, 1);
+ }
+ 
+ double parse_number_or_die(const char *context, const char *numstr, int type,

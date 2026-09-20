@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Online video converter for D-JIX YUNO 3000</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%230f1216'/%3E%3Crect x='22' y='26' width='56' height='40' rx='6' fill='%23ff7a1a'/%3E%3Cpath d='M45 38l16 8-16 8z' fill='%230f1216'/%3E%3Crect x='32' y='72' width='36' height='6' rx='3' fill='%233d4654'/%3E%3C/svg%3E">
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b23; --panel2:#1c232e; --line:#28313e;
+    --txt:#e8edf4; --mut:#9aa7b8; --acc:#ff7a1a; --acc2:#ffb066;
+    --ok:#4ade80; --err:#f87171; --warn:#facc15;
+    --r:14px;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    background:radial-gradient(1200px 500px at 70% -10%, #1a2230 0%, var(--bg) 55%);
+    color:var(--txt);
+    font:15px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,Ubuntu,sans-serif;
+    min-height:100vh;
+  }
+  header{
+    display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between;
+    padding:22px clamp(16px,4vw,42px) 10px;
+  }
+  .brand{display:flex;align-items:center;gap:14px}
+  .logo{width:46px;height:46px;border-radius:12px;background:linear-gradient(135deg,var(--acc),#c2410c);
+    display:flex;align-items:center;justify-content:center;font-size:24px;box-shadow:0 6px 18px #ff7a1a33}
+  h1{font-size:clamp(19px,2.6vw,26px);margin:0;letter-spacing:.2px}
+  h1 small{display:block;font-weight:500;color:var(--mut);font-size:13px;margin-top:3px}
+  .badges{display:flex;gap:8px;flex-wrap:wrap}
+  .badge{border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:6px 13px;font-size:12.5px;color:var(--mut)}
+  .badge b{color:var(--ok)}
+  main{
+    display:grid;grid-template-columns:minmax(0,1.35fr) minmax(300px,.85fr);
+    gap:18px;padding:12px clamp(16px,4vw,42px) 30px;max-width:1280px;margin:0 auto;
+  }
+  @media (max-width:960px){ main{grid-template-columns:1fr} }
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:18px;margin-bottom:16px}
+  .card h2{font-size:15px;margin:0 0 12px;color:var(--txt);display:flex;align-items:center;gap:8px}
+  .card h2 .pill{margin-left:auto;font-weight:400;font-size:12px;color:var(--mut)}
+
+  /* dropzone */
+  #dropzone{
+    border:2px dashed #3a465a;border-radius:var(--r);padding:34px 18px;text-align:center;cursor:pointer;
+    transition:.15s;background:var(--panel2);
+  }
+  #dropzone.over{border-color:var(--acc);background:#241a12;transform:scale(1.005)}
+  #dropzone .big{font-size:34px}
+  #dropzone p{margin:8px 0 0;color:var(--mut);font-size:13.5px}
+  #dropzone b{color:var(--acc2)}
+
+  /* list */
+  #list{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+  .empty{border:1px dashed var(--line);border-radius:12px;padding:22px;text-align:center;color:var(--mut);font-size:13.5px}
+  .row{background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .fname{font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fname .size{color:var(--mut);font-weight:400;font-size:12.5px}
+  .meta{color:var(--mut);font-size:12.5px;margin-top:3px}
+  .meta.ok{color:var(--ok)}
+  .meta.err{color:var(--err);white-space:normal}
+  .meta.warn{color:var(--warn)}
+  .stline{display:flex;align-items:center;gap:8px;margin-top:7px;flex-wrap:wrap}
+  .chip{font-size:11.5px;border-radius:999px;padding:3px 10px;border:1px solid var(--line);color:var(--mut)}
+  .st-ready{color:#7dd3fc;border-color:#155e7533}
+  .st-analyze,.st-conv{color:var(--warn);border-color:#713f12}
+  .st-done{color:var(--ok);border-color:#14532d}
+  .st-err{color:var(--err);border-color:#7f1d1d}
+  .bar{height:7px;border-radius:99px;background:#0b0e13;border:1px solid var(--line);overflow:hidden;margin-top:9px}
+  .fill{height:100%;background:linear-gradient(90deg,var(--acc),var(--acc2));transition:width .25s}
+  .pct{font-size:12px;color:var(--mut);margin-top:3px}
+  .cmd{margin-top:7px;font-size:11.5px;color:var(--mut)}
+  .cmd code{display:block;margin-top:4px;padding:7px 9px;background:#0b0e13;border:1px solid var(--line);border-radius:8px;
+    white-space:pre-wrap;word-break:break-all;font:11px/1.5 ui-monospace,Consolas,monospace;color:#8fd3ff}
+
+  /* buttons */
+  .btn{
+    display:inline-flex;align-items:center;gap:7px;border:0;border-radius:10px;cursor:pointer;
+    padding:10px 18px;font-size:14px;font-weight:600;color:#1a1108;
+    background:linear-gradient(135deg,var(--acc),#f59e0b);transition:.12s;text-decoration:none;
+  }
+  .btn:hover:not(:disabled){filter:brightness(1.1);transform:translateY(-1px)}
+  .btn:disabled{opacity:.4;cursor:not-allowed}
+  .btn.ghost{background:var(--panel2);color:var(--txt);border:1px solid var(--line);font-weight:500}
+  .btn.ghost:hover:not(:disabled){border-color:var(--acc)}
+  .btn.danger{background:#3b1216;color:#fca5a5;border:1px solid #7f1d1d}
+  .btn.small{padding:5px 12px;font-size:12.5px;border-radius:8px}
+  .actionsbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:14px}
+  #count{color:var(--mut);font-size:12.5px;margin-left:auto}
+  .globalwrap{margin-top:12px;display:none}
+  .globalwrap.on{display:block}
+  #globalTxt{font-size:12.5px;color:var(--mut);margin-top:4px}
+  .globaltrack{height:9px;border-radius:99px;background:#0b0e13;border:1px solid var(--line);overflow:hidden}
+  #globalBar{height:100%;width:0;background:linear-gradient(90deg,#22c55e,#a3e635);transition:width .3s}
+
+  /* settings */
+  .field{margin-bottom:12px}
+  .field label{display:block;font-size:12.5px;color:var(--mut);margin-bottom:5px}
+  select,input[type=number],input[type=text]{
+    width:100%;background:#0b0e13;border:1px solid var(--line);border-radius:9px;color:var(--txt);
+    padding:9px 11px;font-size:14px;outline:none;
+  }
+  select:focus,input:focus{border-color:var(--acc)}
+  select:disabled,input:disabled{opacity:.45}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .checkline{display:flex;align-items:center;gap:9px;font-size:13.5px;color:var(--txt);margin:10px 0}
+  .checkline input{width:17px;height:17px;accent-color:var(--acc)}
+
+  /* misc */
+  #enginePill{font-size:12.5px;color:var(--mut);background:var(--panel);border:1px solid var(--line);
+    border-radius:999px;padding:7px 14px}
+  #netbanner{
+    display:none;max-width:1280px;margin:0 auto;padding:0 clamp(16px,4vw,42px) 12px;
+  }
+  #netbanner .inner{
+    background:#2a1a08;border:1px solid #7a4a12;color:#ffd9a8;border-radius:12px;
+    padding:12px 16px;font-size:13.5px;line-height:1.7;
+  }
+  #netbanner .inner code{background:#0b0e13;padding:1px 6px;border-radius:6px;color:#8fd3ff}
+  #netbanner .btn{margin-left:6px;vertical-align:middle}
+  details.abox{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);padding:14px 18px;margin-bottom:16px}
+  details.abox summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--acc2)}
+  details.abox .inner{margin-top:10px;font-size:13.5px;color:var(--mut)}
+  details.abox .inner ol li,details.abox .inner ul li{margin-bottom:6px}
+  details.abox .inner b{color:var(--txt)}
+  #log{max-height:220px;overflow:auto;background:#0b0e13;border:1px solid var(--line);border-radius:10px;
+    padding:10px;font:11px/1.5 ui-monospace,Consolas,monospace;color:#9fb3c8;white-space:pre-wrap;word-break:break-all}
+  .warnbox{background:#231a05;border:1px solid #713f12;color:#fde68a;border-radius:10px;padding:10px 13px;font-size:12.8px;margin-top:12px}
+  footer{padding:8px clamp(16px,4vw,42px) 36px;text-align:center;color:var(--mut);font-size:12.5px;max-width:1280px;margin:0 auto}
+  #toast{
+    position:fixed;left:50%;bottom:26px;transform:translate(-50%,80px);opacity:0;pointer-events:none;
+    background:#1f2937;border:1px solid var(--line);color:var(--txt);border-radius:12px;padding:12px 20px;
+    font-size:13.5px;max-width:min(560px,92vw);transition:.25s;z-index:50;box-shadow:0 12px 34px #0009;
+  }
+  #toast.show{transform:translate(-50%,0);opacity:1}
+  #toast.err{border-color:#7f1d1d;background:#2a1214}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="logo">🎬</div>
+    <h1>Online video converter for D-JIX <span style="color:var(--acc)">YUNO&nbsp;3000</span>
+      <small>Your modern videos (MP4, MKV, WebM, HEVC…) turned into AVI files your player can play — entirely in your browser.</small>
+    </h1>
+  </div>
+  <div class="badges">
+    <span class="badge">🔒 <b>100% local</b> — zero upload</span>
+    <span class="badge" id="enginePill">⚙️ Engine: idle</span>
+  </div>
+</header>
+
+<div id="netbanner"></div>
+
+<main>
+  <!-- ============ Left column ============ -->
+  <section>
+    <div class="card">
+      <h2>Choose your videos <span class="pill" id="count"></span></h2>
+      <div id="dropzone">
+        <div class="big">📥</div>
+        <p><b>Drag &amp; drop</b> your videos here, or <b>click to browse</b>.<br>
+        MP4 · M4V · MKV · WebM · MOV · AVI · WMV · FLV · TS/M2TS · MPG · VOB · 3GP…<br>
+        <span style="font-size:12px">Nothing is uploaded to the Internet: conversion runs in WebAssembly on your machine.</span></p>
+      </div>
+      <input type="file" id="fileInput" multiple hidden
+             accept="video/*,.mp4,.m4v,.mkv,.webm,.mov,.avi,.wmv,.flv,.ts,.m2ts,.mts,.mpg,.mpeg,.vob,.ogv,.3gp,.3g2,.asf,.rm,.rmvb,.divx,.f4v,.mxf">
+      <div id="list"></div>
+      <div class="actionsbar">
+        <button class="btn" id="runBtn" disabled>▶ Convert all</button>
+        <button class="btn ghost" id="cancelBtn" disabled>⏹ Cancel</button>
+        <button class="btn ghost" id="dlAllBtn" disabled>⬇ Download all</button>
+        <button class="btn ghost" id="clearBtn" disabled>🗑 Clear</button>
+        <span id="count2"></span>
+      </div>
+      <div class="globalwrap" id="globalWrap">
+        <div class="globaltrack"><div id="globalBar"></div></div>
+        <div id="globalTxt"></div>
+      </div>
+    </div>
+
+    <details class="abox" open>
+      <summary>Conversion settings</summary>
+      <div class="inner">
+        <div id="qualityWrap">
+          <div class="field" style="margin-top:12px">
+            <label>Video quality (MPEG-4 bitrate)</label>
+            <select id="quality">
+              <option value="low">Low — 350 kbps (smaller files)</option>
+              <option value="mid" selected>Normal — 500 kbps (balanced)</option>
+              <option value="high">High — 800 kbps (sharper picture)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Framing for the 220×176 screen (5:4 ratio)</label>
+          <select id="fit">
+            <option value="pad" selected>Black bars (no image loss)</option>
+            <option value="crop">Fill the screen (crops the edges)</option>
+            <option value="stretch">Stretch (distorts)</option>
+          </select>
+        </div>
+
+        <div class="grid2">
+          <div class="field">
+            <label>Volume</label>
+            <select id="vol">
+              <option value="0" selected>Normal</option>
+              <option value="3">+3 dB</option>
+              <option value="6">+6 dB</option>
+              <option value="9">+9 dB</option>
+              <option value="-6">−6 dB</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Audio</label>
+            <input type="text" value="MP2 — 44,100 Hz stereo" disabled>
+          </div>
+        </div>
+
+        <div class="grid2" style="margin-top:12px">
+          <div class="field"><label>Clip start (seconds)</label><input type="number" id="trimStart" min="0" step="0.5" value="0" placeholder="0"></div>
+          <div class="field"><label>Maximum duration (seconds, empty = all)</label><input type="number" id="trimDur" min="0" step="0.5" placeholder="whole movie"></div>
+        </div>
+
+        <label class="checkline"><input type="checkbox" id="mute"> Remove audio (silent video)</label>
+      </div>
+    </details>
+
+    <details class="abox">
+      <summary>Technical log (ffmpeg)</summary>
+      <div class="inner">
+        <p style="margin-top:0">If something goes wrong: click, then paste the content into the conversation — it shows exactly where the engine stopped.</p>
+        <button class="btn small ghost" id="copyLogBtn">📋 Copy log</button>
+        <pre id="log">Waiting…</pre>
+      </div>
+    </details>
+  </section>
+
+  <!-- ============ Right column ============ -->
+  <aside>
+    <div class="card">
+      <h2>⚠️ Good to know</h2>
+      <ul style="margin:0;padding-left:18px;font-size:13px;color:var(--mut);line-height:1.7">
+        <li><b>Privacy</b>: your videos never leave your computer (no server, no upload). The FFmpeg engine runs in WebAssembly inside this tab.</li>
+        <li><b>First conversion</b>: the engine (~31&nbsp;MB) downloads once, then stays cached.</li>
+        <li><b>Speed</b>: expect roughly ⅓ to 1× the video duration depending on your machine (the player only shows 220×176, so conversion stays fast). Keep the tab visible.</li>
+        <li><b>Sizes</b>: source files up to ~1.5&nbsp;GB. Beyond that, split them first (the "max duration" setting).</li>
+        <li><b>AV1</b>: AV1 decoding is not built in (rare for personal use). H.264, H.265/HEVC, VP8/VP9, MPEG-2… are supported.</li>
+        <li><b>Tuned for the YUNO 300</b>: XviD 800&nbsp;kbps (all keyframes), guaranteed MP2 audio, picture corrected for the screen — recipe validated on the device.</li>
+      </ul>
+    </div>
+  </aside>
+</main>
+
+<footer>
+  🔒 No file is ever uploaded — conversion happens entirely in your browser (WebAssembly).<br>
+  Works offline once the engine is loaded · recent Chrome, Edge or Firefox recommended.
+</footer>
+
+<div id="toast"></div>
+
+<script src="vendor/ffmpeg/ffmpeg.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
